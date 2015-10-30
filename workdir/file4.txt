@@ -1,0 +1,5 @@
+S0 some special file
+©À©¤line_with_special_chars
+©¦      S0_background_app.png
+©¦      S0_background_home.png
+©¦      
