@@ -36,9 +36,10 @@ class Application(object):
 
     # afind params with amount of following arguments
     CUSTOM_PARAMS = OrderedDict([
-        ('--subl',      {'args_count': 0, 'description': 'Open files in SublimeText'}),
-        ('--atom',      {'args_count': 0, 'description': 'Open files in Atom'}),
-        ('--afind-dbg', {'args_count': 0, 'is_hidden': True}),
+        ('--subl',         {'args_count': 0, 'description': 'Open files in SublimeText'}),
+        ('--atom',         {'args_count': 0, 'description': 'Open files in Atom'}),
+        ('--force-colors', {'args_count': 0, 'description': 'Preserve colors while piping'}),
+        ('--afind-dbg',    {'args_count': 0, 'is_hidden': True}),
     ])
 
     PARAMS_FIELD_LENGTH = 24
@@ -101,7 +102,19 @@ class Application(object):
         :return: SearchResults instance
         """
 
+        if sys.stdout.isatty() or ('--force-colors' in self.afind_params):
+            printer = self._print_to_tty()
+        else:
+            printer = self._print_to_pipe()
+
         all_filenames = SearchResults()
+
+        for res in printer:
+            all_filenames.add_result(res.filename, res.line_num)
+
+        return all_filenames
+
+    def _print_to_tty(self):
 
         for res in self.adapter.get_results(self.adapter_params, self.afind_params):
             if res.is_file_finished:
@@ -109,7 +122,7 @@ class Application(object):
 
             elif res.is_title:
                 sys.stdout.write(c.FILENAME + res.filename.encode('utf-8') + c.RESET + b'\n')
-                all_filenames.add_result(res.filename)
+                yield res
 
             else:
                 sys.stdout.write(c.LINENUM + res.line_num.encode('utf-8') + b':' + c.RESET)
@@ -123,9 +136,24 @@ class Application(object):
                     cursor = end
                 sys.stdout.write(line_text[cursor:] + b'\n')
 
-                all_filenames.add_result(res.filename, res.line_num)
+                yield res
 
-        return all_filenames
+    def _print_to_pipe(self):
+        current_filename = ''
+
+        for res in self.adapter.get_results(self.adapter_params, self.afind_params):
+            if res.is_file_finished:
+                pass
+
+            elif res.is_title:
+                current_filename = res.filename.encode('utf-8')
+                yield res
+
+            else:
+                sys.stdout.write(current_filename + b':')
+                sys.stdout.write(res.line_num.encode('utf-8') + b':' + res.line_text.encode('utf-8'))
+                sys.stdout.write(b'\n')
+                yield res
 
     def add_afind_usage(self):
         usage = ''

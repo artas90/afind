@@ -25,12 +25,9 @@ def afind(params='', clean=True, sort_results=False, get_errors=False):
 
     out = out.decode('utf-8')
 
+    lines = out.splitlines()
     if sort_results:
-        lines = sorted(out.split('\n\n'))
-        lines = [result.splitlines() + [''] for result in lines]
-        lines = list(chain.from_iterable(lines))[:-1]
-    else:
-        lines = out.splitlines()
+        lines = list(sorted(lines))
 
     return lines
 
@@ -39,45 +36,45 @@ class TestAfind(unittest.TestCase):
 
     def test_01_search_simple(self):
         self.assertEqual(afind('func1 workdir', clean=False), [
+            'workdir/file1.py:2:def func1():',
+        ])
+
+        self.assertEqual(afind('func1 workdir --force-colors', clean=False), [
             '\033[1;32mworkdir/file1.py\033[0m',
             '\033[1;33m2:\033[0mdef \033[30;43mfunc1\033[0m():',
         ])
 
-        self.assertEqual(afind('func1 workdir -A 1', clean=False), [
+        self.assertEqual(afind('func1 workdir -A 1 --force-colors', clean=False), [
             '\033[1;32mworkdir/file1.py\033[0m',
             '\033[1;33m2:\033[0mdef \033[30;43mfunc1\033[0m():',
             '\033[1;33m3:\033[0m    pass',
         ])
 
     def test_02_search_non_ascii(self):
-        self.assertEqual(afind('deutschen workdir', clean=False), [
+        self.assertEqual(afind('deutschen workdir --force-colors', clean=False), [
             '\033[1;32mworkdir/file3-non-ascii.txt\033[0m',
             '\033[1;33m1:\033[0mDas Schriftzeichen \xdf ist ein Buchstabe' +
             ' des \033[30;43mdeutschen\033[0m Alphabets.'
         ])
 
-        self.assertEqual(afind('Österreich workdir', clean=False), [
+        self.assertEqual(afind('Österreich workdir --force-colors', clean=False), [
             '\033[1;32mworkdir/file3-non-ascii.txt\033[0m',
             '\033[1;33m3:\033[0msowie \033[30;43m\xd6sterreich\033[0m als scharfes S bzw.'
         ])
 
     def test_03_search_with_space(self):
-        self.assertEqual(afind("'def func1' workdir", clean=False), [
+        self.assertEqual(afind("'def func1' workdir --force-colors", clean=False), [
             '\033[1;32mworkdir/file1.py\033[0m',
             '\033[1;33m2:\033[0m\033[30;43mdef func1\033[0m():',
         ])
 
     def test_04_exlude_files(self):
         self.assertEqual(afind('def workdir', sort_results=True), [
-            'workdir/file1.py',
-            '2:def func1():',
-            '',
-            'workdir/file2.scala',
-            '2:    def main(args: Array[String]) {',
+            'workdir/file1.py:2:def func1():',
+            'workdir/file2.scala:2:    def main(args: Array[String]) {',
         ])
-        self.assertEqual(afind('-nG scala def workdir', sort_results=True), [
-            'workdir/file1.py',
-            '2:def func1():',
+        self.assertEqual(afind('def workdir -nG scala', sort_results=True), [
+            'workdir/file1.py:2:def func1():',
         ])
 
     def test_05_handle_decode_error(self):
