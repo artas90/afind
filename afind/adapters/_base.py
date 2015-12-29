@@ -8,13 +8,14 @@ class ParseResult(object):
 
     def __init__(
         self, filename=None, line_text=None, line_num=None, line_cols=None,
-        is_title=False, is_file_finished=False
+        is_title=False, is_group_delimiter=False, is_file_finished=False
     ):
         self.filename = filename
         self.line_text = line_text
         self.line_num = line_num
         self.line_cols = line_cols
         self.is_title = is_title
+        self.is_group_delimiter = is_group_delimiter
         self.is_file_finished = is_file_finished
 
 

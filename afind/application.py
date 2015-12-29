@@ -124,8 +124,12 @@ class Application(object):
                 sys.stdout.write(c.FILENAME + res.filename.encode('utf-8') + c.RESET + b'\n')
                 yield res
 
+            elif res.is_group_delimiter:
+                sys.stdout.write('--\n')
+
             else:
-                sys.stdout.write(c.LINENUM + res.line_num.encode('utf-8') + b':' + c.RESET)
+                suffix = b':' if res.line_cols else b'-'
+                sys.stdout.write(c.LINENUM + res.line_num.encode('utf-8') + suffix + c.RESET)
 
                 line_text = res.line_text.encode('utf-8')
                 cursor = 0
@@ -149,9 +153,13 @@ class Application(object):
                 current_filename = res.filename.encode('utf-8')
                 yield res
 
+            elif res.is_group_delimiter:
+                sys.stdout.write('--\n')
+
             else:
+                suffix = b':' if res.line_cols else b'-'
                 sys.stdout.write(current_filename + b':')
-                sys.stdout.write(res.line_num.encode('utf-8') + b':' + res.line_text.encode('utf-8'))
+                sys.stdout.write(res.line_num.encode('utf-8') + suffix + res.line_text.encode('utf-8'))
                 sys.stdout.write(b'\n')
                 yield res
 

@@ -36,6 +36,10 @@ class AdapterAg(AdapterBase):
                 current_filename = line[1:]
                 yield ParseResult(filename=current_filename, is_title=True)
 
+            # is group delimiter
+            elif line.strip() == '--':
+                yield ParseResult(is_group_delimiter=True)
+
             # file content
             else:
                 parsed = self.MATCH_STR_RE.match(line)
