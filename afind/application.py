@@ -1,35 +1,10 @@
 from __future__ import unicode_literals, print_function
-import os
 import sys
 from collections import OrderedDict
-from afind.utils.term_colors import TermColors
 from afind.utils.search_results import SearchResults
+from afind.utils.result_formatters import tty_formatter, pipe_formatter
+from afind.utils.editors import onen_in_editor
 from afind.adapters.ag import Adapter
-
-
-class c(object):
-    RESET    = TermColors.RESET
-    FILENAME = TermColors.make_flags(TermColors.green,  bold=True)
-    LINENUM  = TermColors.make_flags(TermColors.yellow, bold=True)
-    MATCH    = TermColors.make_flags(TermColors.black,  bg=TermColors.yellow)
-
-
-def onen_in_editor(editor_title, editor_cmd, filenames):
-    """
-    :param: editor_title - string
-    :param: editor_cmd   - string
-    :param: filenames    - SearchResults instance
-    """
-    if len(filenames) > 15:
-        msg = '\nDo you want to open {} files? [y/n]: '.format(len(filenames))
-        if raw_input(msg).strip().lower() != 'y':
-            return
-
-    files = filenames.get_filenames(only_first_line=True)
-
-    sys.stdout.write('@afind open: {}...\n'.format(editor_title))
-    cmd = "echo {} | xargs {}".format(files, editor_cmd)
-    os.system(cmd)
 
 
 class Application(object):
@@ -102,66 +77,20 @@ class Application(object):
         :return: SearchResults instance
         """
 
+        results = self.adapter.get_results(self.adapter_params, self.afind_params)
+
         if sys.stdout.isatty() or ('--force-colors' in self.afind_params):
-            printer = self._print_to_tty()
+            results = tty_formatter(results)
         else:
-            printer = self._print_to_pipe()
+            results = pipe_formatter(results)
 
         all_filenames = SearchResults()
 
-        for res in printer:
-            all_filenames.add_result(res.filename, res.line_num)
+        for res in results:
+            if res.filename:
+                all_filenames.add_result(res.filename, res.line_num)
 
         return all_filenames
-
-    def _print_to_tty(self):
-
-        for res in self.adapter.get_results(self.adapter_params, self.afind_params):
-            if res.is_file_finished:
-                sys.stdout.write('\n')
-
-            elif res.is_title:
-                sys.stdout.write(c.FILENAME + res.filename.encode('utf-8') + c.RESET + b'\n')
-                yield res
-
-            elif res.is_group_delimiter:
-                sys.stdout.write('--\n')
-
-            else:
-                suffix = b':' if res.line_cols else b'-'
-                sys.stdout.write(c.LINENUM + res.line_num.encode('utf-8') + suffix + c.RESET)
-
-                line_text = res.line_text.encode('utf-8')
-                cursor = 0
-                for start, length in res.line_cols:
-                    end = start + length
-                    sys.stdout.write(line_text[cursor:start])
-                    sys.stdout.write(c.MATCH + line_text[start:end] + c.RESET)
-                    cursor = end
-                sys.stdout.write(line_text[cursor:] + b'\n')
-
-                yield res
-
-    def _print_to_pipe(self):
-        current_filename = ''
-
-        for res in self.adapter.get_results(self.adapter_params, self.afind_params):
-            if res.is_file_finished:
-                pass
-
-            elif res.is_title:
-                current_filename = res.filename.encode('utf-8')
-                yield res
-
-            elif res.is_group_delimiter:
-                sys.stdout.write('--\n')
-
-            else:
-                suffix = b':' if res.line_cols else b'-'
-                sys.stdout.write(current_filename + b':')
-                sys.stdout.write(res.line_num.encode('utf-8') + suffix + res.line_text.encode('utf-8'))
-                sys.stdout.write(b'\n')
-                yield res
 
     def add_afind_usage(self):
         usage = ''
