@@ -1,2 +1,2 @@
 #!/bin/sh
-echo -n '' $* > `dirname $0`/atom.out
+echo $* > `dirname $0`/atom.out
