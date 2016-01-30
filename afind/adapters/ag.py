@@ -61,6 +61,8 @@ class AdapterAg(AdapterBase):
                     line_cols=line_cols,
                 )
 
+        yield ParseResult(is_results_finished=True)
+
         self.actions_post(afind_params)
 
     def actions_pre(self, afind_params):

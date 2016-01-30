@@ -133,6 +133,93 @@ class TestAfind(unittest.TestCase):
 
         os.system('rm -rf ' + atom_out)
 
+    def test_10_generate_patch(self):
+
+        # backend search utulity can output results in different order
+        results = afind('def workdir -A 1 --make-patch')
+        results = ' ' + '\n'.join(results).strip(' \n')
+        results = ['--- a' + r for r in results.split('--- a')[1:]]
+        results = ''.join(sorted(results)).splitlines()
+
+        self.assertEqual(results, [
+            '--- a/workdir/file1.py',
+            '+++ b/workdir/file1.py',
+            '@@ -2,2 +2,2 @@',
+            '-def func1():',
+            '+def func1():',
+            '     pass',
+            '--- a/workdir/file2.scala',
+            '+++ b/workdir/file2.scala',
+            '@@ -2,2 +2,2 @@',
+            '-    def main(args: Array[String]) {',
+            '+    def main(args: Array[String]) {',
+            '         println("Hello, world!")',
+        ])
+
+        self.assertEqual(afind('println workdir -C 1 --make-patch'), [
+            '--- a/workdir/file2.scala',
+            '+++ b/workdir/file2.scala',
+            '@@ -2,5 +2,5 @@',
+            '     def main(args: Array[String]) {',
+            '-        println("Hello, world!")',
+            '+        println("Hello, world!")',
+            '         // empty line',
+            '-        println("Second print")',
+            '+        println("Second print")',
+            '         // three',
+            '@@ -8,3 +8,3 @@',
+            '         // lines',
+            '-        println("Third print")',
+            '+        println("Third print")',
+            '     }',
+        ])
+
+    def test_11_apply_patch(self):
+
+        # example case if we need to change several translations
+        for lang in ['en', 'de']:
+            filename = path('workdir', 'lang-' + lang + '.json')
+
+            with open(filename, 'w') as target_file:
+                target_file.writelines([
+                    '{\n',
+                    '    "network_unavalable": "Network is unavalable"\n',
+                    '}\n',
+                ])
+
+        with open(path('workdir', 'test_apply_patch.patch'), 'w') as patchfile:
+            patch_data = [
+                '--- a/workdir/lang-en.json',
+                '+++ b/workdir/lang-en.json',
+                '@@ -2,1 +2,1 @@',
+                '-    "network_unavalable": "Network is unavalable"',
+                '+    "network_unavalable": "Sorry, network is unavalable"',
+                '--- a/workdir/lang-de.json',
+                '+++ b/workdir/lang-de.json',
+                '@@ -2,1 +2,1 @@',
+                '-    "network_unavalable": "Network is unavalable"',
+                '+    "network_unavalable": "Entschuldigung, Netzwerk nicht verfügbar ist"',
+                '',
+            ]
+
+            patchfile.write('\n'.join(patch_data).encode('utf-8'))
+
+        self.assertEqual(afind('--apply-patch ' + path('workdir', 'test_apply_patch.patch')), [
+            'patching file workdir/lang-en.json',
+            'patching file workdir/lang-de.json',
+        ])
+
+        os.system('rm -rf ' + path('workdir', 'test_apply_patch.patch'))
+
+        self.assertEqual(afind('network_unavalable workdir', sort_results=True), [
+            'workdir/lang-de.json:2:    "network_unavalable": "Entschuldigung, Netzwerk nicht verfügbar ist"',
+            'workdir/lang-en.json:2:    "network_unavalable": "Sorry, network is unavalable"',
+        ])
+
+        for lang in ['en', 'de']:
+            os.system('rm -rf ' + path('workdir', 'lang-' + lang + '.json'))
+
+
 
 class TestAfindAg(unittest.TestCase):
 

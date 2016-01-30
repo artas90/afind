@@ -13,15 +13,15 @@ def tty_formatter(results):
 
     for res in results:
         if res.is_file_finished:
-            sys.stdout.write('\n')
+            sys.stdout.write(b'\n')
 
         elif res.is_title:
             sys.stdout.write(c.FILENAME + res.filename.encode('utf-8') + c.RESET + b'\n')
 
         elif res.is_group_delimiter:
-            sys.stdout.write('--\n')
+            sys.stdout.write(b'--\n')
 
-        else:
+        elif res.line_text is not None:
             suffix = b':' if res.line_cols else b'-'
             sys.stdout.write(c.LINENUM + res.line_num.encode('utf-8') + suffix + c.RESET)
 
@@ -48,13 +48,69 @@ def pipe_formatter(results):
             current_filename = res.filename.encode('utf-8')
 
         elif res.is_group_delimiter:
-            sys.stdout.write('--\n')
+            sys.stdout.write(b'--\n')
 
-        else:
-            suffix = b':' if res.line_cols else b'-'
+        elif res.line_text is not None:
+            prefix = b':' if res.line_cols else b'-'
             sys.stdout.write(current_filename + b':')
-            sys.stdout.write(res.line_num.encode('utf-8') + suffix + res.line_text.encode('utf-8'))
+            sys.stdout.write(res.line_num.encode('utf-8') + prefix + res.line_text.encode('utf-8'))
             sys.stdout.write(b'\n')
         
+        yield res
+
+
+
+class PatchBlock():
+
+    def __init__(self):
+        self._results = []
+
+    def add_result(self, result):
+        self._results.append(result)
+
+    def flush(self):
+        if not self._results:
+            return
+
+        try:
+            first_line = int(self._results[0].line_num)
+            last_line = int(self._results[-1].line_num)
+            context_count = last_line - first_line + 1
+            sys.stdout.write(b'@@ -{0},{1} +{0},{1} @@\n'.format(first_line, context_count))
+
+        except (IndexError, ValueError, TypeError) as e:
+            sys.stderr.write(b'@@ WRONG BLOCK @@\n')
+            self._results = []
+            return
+
+        for res in self._results:
+            line_text = res.line_text.encode('utf-8')
+
+            if res.line_cols:
+                sys.stdout.write(b'-' + line_text + b'\n')
+                sys.stdout.write(b'+' + line_text + b'\n')
+            else:
+                sys.stdout.write(b' ' + line_text + b'\n')
+
+        self._results = []
+
+
+def patch_formatter(results):
+    current_filename = ''
+
+    block = PatchBlock()
+
+    for res in results:
+        if res.is_file_finished or res.is_group_delimiter or res.is_results_finished:
+            block.flush()
+
+        elif res.is_title:
+            current_filename = res.filename.encode('utf-8')
+            sys.stdout.write(b'--- a/' + current_filename + b'\n')
+            sys.stdout.write(b'+++ b/' + current_filename + b'\n')
+
+        elif res.line_text is not None:
+            block.add_result(res)
+
         yield res
 
