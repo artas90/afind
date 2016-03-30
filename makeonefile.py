@@ -8,10 +8,9 @@ project_dir = os.path.dirname(os.path.abspath(__file__))
 
 def main():
     files = [
-        'afind/utils/search_results.py',
         'afind/utils/term_colors.py',
         'afind/utils/result_formatters.py',
-        'afind/utils/editors.py',
+        'afind/utils/filenames_collector.py',
         'afind/adapters/_base.py',
         'afind/adapters/ag.py',
         'afind/application.py',

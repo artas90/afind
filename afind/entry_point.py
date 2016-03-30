@@ -7,7 +7,7 @@ def main():
     import signal
 
     def signal_handler(signal, frame):
-        sys.stdout.write('Aborted by pressing Ctrl+C!\n')
+        sys.stdout.write('Aborted by SIGINT!\n')
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)

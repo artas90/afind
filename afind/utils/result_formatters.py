@@ -2,65 +2,79 @@ import sys
 from afind.utils.term_colors import TermColors
 
 
-class c(object):
+class DefaultColors(object):
     RESET    = TermColors.RESET
     FILENAME = TermColors.make_flags(TermColors.green,  bold=True)
     LINENUM  = TermColors.make_flags(TermColors.yellow, bold=True)
     MATCH    = TermColors.make_flags(TermColors.black,  bg=TermColors.yellow)
 
 
-def tty_formatter(results):
 
-    for res in results:
-        if res.is_file_finished:
-            sys.stdout.write(b'\n')
+class BaseFormatter(object):
 
-        elif res.is_title:
-            sys.stdout.write(c.FILENAME + res.filename.encode('utf-8') + c.RESET + b'\n')
-
-        elif res.is_group_delimiter:
-            sys.stdout.write(b'--\n')
-
-        elif res.line_text is not None:
-            suffix = b':' if res.line_cols else b'-'
-            sys.stdout.write(c.LINENUM + res.line_num.encode('utf-8') + suffix + c.RESET)
-
-            line_text = res.line_text.encode('utf-8')
-            cursor = 0
-            for start, length in res.line_cols:
-                end = start + length
-                sys.stdout.write(line_text[cursor:start])
-                sys.stdout.write(c.MATCH + line_text[start:end] + c.RESET)
-                cursor = end
-            sys.stdout.write(line_text[cursor:] + b'\n')
-
-        yield res
+    def __init__(self, results_stream, colors=None):
+        self._results_stream = results_stream
+        self._colors = colors or DefaultColors()
 
 
-def pipe_formatter(results):
-    current_filename = ''
+class TtyFormatter(BaseFormatter):
 
-    for res in results:
-        if res.is_file_finished:
-            pass
+    def __iter__(self):
+        c = self._colors
 
-        elif res.is_title:
-            current_filename = res.filename.encode('utf-8')
+        for res in self._results_stream:
+            if res.is_file_finished:
+                sys.stdout.write(b'\n')
 
-        elif res.is_group_delimiter:
-            sys.stdout.write(b'--\n')
+            elif res.is_title:
+                sys.stdout.write(c.FILENAME + res.filename.encode('utf-8') + c.RESET + b'\n')
 
-        elif res.line_text is not None:
-            prefix = b':' if res.line_cols else b'-'
-            sys.stdout.write(current_filename + b':')
-            sys.stdout.write(res.line_num.encode('utf-8') + prefix + res.line_text.encode('utf-8'))
-            sys.stdout.write(b'\n')
-        
-        yield res
+            elif res.is_group_delimiter:
+                sys.stdout.write(b'--\n')
+
+            elif res.line_text is not None:
+                suffix = b':' if res.line_cols else b'-'
+                sys.stdout.write(c.LINENUM + res.line_num.encode('utf-8') + suffix + c.RESET)
+
+                line_text = res.line_text.encode('utf-8')
+                cursor = 0
+                for start, length in res.line_cols:
+                    end = start + length
+                    sys.stdout.write(line_text[cursor:start])
+                    sys.stdout.write(c.MATCH + line_text[start:end] + c.RESET)
+                    cursor = end
+                sys.stdout.write(line_text[cursor:] + b'\n')
+
+            yield res
 
 
 
-class PatchBlock():
+class PipeFormatter(BaseFormatter):
+
+    def __iter__(self):
+        current_filename = ''
+
+        for res in self._results_stream:
+            if res.is_file_finished:
+                pass
+
+            elif res.is_title:
+                current_filename = res.filename.encode('utf-8')
+
+            elif res.is_group_delimiter:
+                sys.stdout.write(b'--\n')
+
+            elif res.line_text is not None:
+                prefix = b':' if res.line_cols else b'-'
+                sys.stdout.write(current_filename + b':')
+                sys.stdout.write(res.line_num.encode('utf-8') + prefix + res.line_text.encode('utf-8'))
+                sys.stdout.write(b'\n')
+            
+            yield res
+
+
+
+class PatchBlock(object):
 
     def __init__(self):
         self._results = []
@@ -86,31 +100,33 @@ class PatchBlock():
         for res in self._results:
             line_text = res.line_text.encode('utf-8')
 
-            if res.line_cols:
+            if res.line_cols: # lines with matches
                 sys.stdout.write(b'-' + line_text + b'\n')
                 sys.stdout.write(b'+' + line_text + b'\n')
-            else:
+            else: # context lines
                 sys.stdout.write(b' ' + line_text + b'\n')
 
         self._results = []
 
 
-def patch_formatter(results):
-    current_filename = ''
+class PatchFormatter(BaseFormatter):
 
-    block = PatchBlock()
+    def __iter__(self):
+        current_filename = ''
 
-    for res in results:
-        if res.is_file_finished or res.is_group_delimiter or res.is_results_finished:
-            block.flush()
+        block = PatchBlock()
 
-        elif res.is_title:
-            current_filename = res.filename.encode('utf-8')
-            sys.stdout.write(b'--- a/' + current_filename + b'\n')
-            sys.stdout.write(b'+++ b/' + current_filename + b'\n')
+        for res in self._results_stream:
+            if res.is_file_finished or res.is_group_delimiter or res.is_results_finished:
+                block.flush()
 
-        elif res.line_text is not None:
-            block.add_result(res)
+            elif res.is_title:
+                current_filename = res.filename.encode('utf-8')
+                sys.stdout.write(b'--- a/' + current_filename + b'\n')
+                sys.stdout.write(b'+++ b/' + current_filename + b'\n')
 
-        yield res
+            elif res.line_text is not None:
+                block.add_result(res)
+
+            yield res
 

@@ -137,9 +137,8 @@ class TestAfind(unittest.TestCase):
 
         # backend search utulity can output results in different order
         results = afind('def workdir -A 1 --make-patch')
-        results = ' ' + '\n'.join(results).strip(' \n')
-        results = ['--- a' + r for r in results.split('--- a')[1:]]
-        results = ''.join(sorted(results)).splitlines()
+        results = '\n'.join(results).strip(' \n').replace('\n--- a/', '#CUT#--- a/').split('#CUT#')
+        results = '\n'.join(sorted(results)).splitlines()
 
         self.assertEqual(results, [
             '--- a/workdir/file1.py',

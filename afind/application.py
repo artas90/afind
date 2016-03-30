@@ -2,9 +2,8 @@ from __future__ import unicode_literals, print_function
 import os
 import sys
 from collections import OrderedDict
-from afind.utils.search_results import SearchResults
-from afind.utils.result_formatters import tty_formatter, pipe_formatter, patch_formatter
-from afind.utils.editors import onen_in_editor
+from afind.utils.filenames_collector import FilenamesCollector
+from afind.utils.result_formatters import TtyFormatter, PipeFormatter, PatchFormatter
 from afind.adapters.ag import Adapter
 
 
@@ -53,14 +52,30 @@ class Application(object):
 
     def _run_search(self):
         self.actions_pre()
-        self.all_filenames = self.parse_and_print()
+
+        results_stream = self.adapter.get_results(self.adapter_params, self.afind_params)
+        formatter = self._get_output_formatter(results_stream)
+        self.filenames_collector = FilenamesCollector(formatter)
+
+        # Run stream
+        for _ in self.filenames_collector: pass
+
         if '--afind-dbg' in self.afind_params:
             sys.stdout.write('\n@afind cmd: ' + self.adapter.cmd_search + '\n')
+
         self.actions_post()
 
     def _run_patch_apply(self):
         cmd = 'patch --unified --strip=1 --force --input ' + self.afind_params['--apply-patch'][0]
         os.system(cmd)
+
+    def _get_output_formatter(self, results_stream):
+        if '--make-patch' in self.afind_params:
+            return PatchFormatter(results_stream)
+        elif sys.stdout.isatty() or ('--force-colors' in self.afind_params):
+            return TtyFormatter(results_stream)
+        else:
+            return PipeFormatter(results_stream)
 
     def split_argv(self):
         all_args = sys.argv[1:]
@@ -98,32 +113,6 @@ class Application(object):
 
         return adapter_params, afind_params
 
-    def parse_and_print(self):
-        """
-        :params: orig_out - string
-            output from ag in ackmate format. Example:
-            :path/to/file.py
-            89;7 8:         a = {}
-        :return: SearchResults instance
-        """
-
-        results = self.adapter.get_results(self.adapter_params, self.afind_params)
-
-        if '--make-patch' in self.afind_params:
-            results = patch_formatter(results)
-        elif sys.stdout.isatty() or ('--force-colors' in self.afind_params):
-            results = tty_formatter(results)
-        else:
-            results = pipe_formatter(results)
-
-        all_filenames = SearchResults()
-
-        for res in results:
-            if res.filename:
-                all_filenames.add_result(res.filename, res.line_num)
-
-        return all_filenames
-
     def add_afind_usage(self):
         usage = ''
         for param in self.custom_params:
@@ -137,8 +126,16 @@ class Application(object):
         pass
 
     def actions_post(self):
-        if '--subl' in self.afind_params and self.all_filenames:
-            onen_in_editor('SublimeText', 'subl', self.all_filenames)
+        editor_title = ''
+        editor_cmd = ''
 
-        if '--atom' in self.afind_params and self.all_filenames:
-            onen_in_editor('Atom.io', 'atom', self.all_filenames)
+        if '--subl' in self.afind_params:
+            editor_title = 'SublimeText'
+            editor_cmd = 'subl'
+
+        elif '--atom' in self.afind_params:
+            editor_title = 'Atom.io'
+            editor_cmd = 'atom'
+
+        if editor_title and editor_cmd:
+            self.filenames_collector.onen_in_editor(editor_title, editor_cmd)
