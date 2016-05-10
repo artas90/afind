@@ -4,7 +4,7 @@ import sys
 from collections import OrderedDict
 from afind.utils.filenames_collector import FilenamesCollector
 from afind.utils.result_formatters import TtyFormatter, PipeFormatter, PatchFormatter
-from afind.adapters.ag import Adapter
+from afind.backends.ag import BackendParser
 
 
 class Application(object):
@@ -22,25 +22,25 @@ class Application(object):
     PARAMS_FIELD_LENGTH = 24
 
     def __init__(self):
-        self.adapter = Adapter()
+        self.parser = BackendParser()
         self.custom_params = OrderedDict()
-        self.custom_params.update(self.adapter.CUSTOM_PARAMS)
+        self.custom_params.update(self.parser.CUSTOM_PARAMS)
         self.custom_params.update(self.CUSTOM_PARAMS)
 
     def run(self):
-        self.adapter_params, self.afind_params = self.split_argv()
+        self.parser_params, self.afind_params = self.split_argv()
 
         show_usage = False
 
-        if  ('-h' in self.adapter_params) or ('--help' in self.adapter_params):
+        if  ('-h' in self.parser_params) or ('--help' in self.parser_params):
             show_usage = True
         elif '--apply-patch' in self.afind_params:
             show_usage = False
-        elif not self.adapter_params:
+        elif not self.parser_params:
             show_usage = True
 
         if show_usage:
-            success = self.adapter.print_usage()
+            success = self.parser.print_usage()
             if success:
                 self.add_afind_usage()
             return
@@ -53,7 +53,7 @@ class Application(object):
     def _run_search(self):
         self.actions_pre()
 
-        results_stream = self.adapter.get_results(self.adapter_params, self.afind_params)
+        results_stream = self.parser.get_results(self.parser_params, self.afind_params)
         formatter = self._get_output_formatter(results_stream)
         self.filenames_collector = FilenamesCollector(formatter)
 
@@ -61,7 +61,7 @@ class Application(object):
         for _ in self.filenames_collector: pass
 
         if '--afind-dbg' in self.afind_params:
-            sys.stdout.write('\n@afind cmd: ' + self.adapter.cmd_search + '\n')
+            sys.stdout.write('\n@afind cmd: ' + self.parser.cmd_search + '\n')
 
         self.actions_post()
 
@@ -85,7 +85,7 @@ class Application(object):
         afind_curr_param = ''
         afind_args_count = 0
 
-        adapter_params  = []
+        parser_params = []
         afind_params = {}
 
         while all_args:
@@ -101,7 +101,7 @@ class Application(object):
                 afind_args_count -= 1
 
             else:
-                adapter_params.append(param_name)
+                parser_params.append(param_name)
 
         for param_name in afind_params:
             args_count = self.custom_params[param_name]['args_count']
@@ -111,7 +111,7 @@ class Application(object):
                 sys.stderr.write(err)
                 sys.exit(1)
 
-        return adapter_params, afind_params
+        return parser_params, afind_params
 
     def add_afind_usage(self):
         usage = ''

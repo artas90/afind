@@ -20,14 +20,14 @@ class ParseResult(object):
         self.is_results_finished = is_results_finished
 
 
-class AdapterBase(object):
+class ParserBase(object):
     cmd_search = ''
     cmd_usage  = ''
 
     # params with amount of following arguments
     CUSTOM_PARAMS = OrderedDict()
 
-    def get_results(self, adapter_params, afind_params):
+    def get_results(self, parser_params, afind_params):
         pass
 
     def actions_pre(self, afind_params):

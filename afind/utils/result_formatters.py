@@ -10,14 +10,14 @@ class DefaultColors(object):
 
 
 
-class BaseFormatter(object):
+class FormatterBase(object):
 
     def __init__(self, results_stream, colors=None):
         self._results_stream = results_stream
         self._colors = colors or DefaultColors()
 
 
-class TtyFormatter(BaseFormatter):
+class TtyFormatter(FormatterBase):
 
     def __iter__(self):
         c = self._colors
@@ -49,7 +49,7 @@ class TtyFormatter(BaseFormatter):
 
 
 
-class PipeFormatter(BaseFormatter):
+class PipeFormatter(FormatterBase):
 
     def __iter__(self):
         current_filename = ''
@@ -109,7 +109,7 @@ class PatchBlock(object):
         self._results = []
 
 
-class PatchFormatter(BaseFormatter):
+class PatchFormatter(FormatterBase):
 
     def __iter__(self):
         current_filename = ''

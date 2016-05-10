@@ -11,8 +11,8 @@ def main():
         'afind/utils/term_colors.py',
         'afind/utils/result_formatters.py',
         'afind/utils/filenames_collector.py',
-        'afind/adapters/_base.py',
-        'afind/adapters/ag.py',
+        'afind/backends/_base.py',
+        'afind/backends/ag.py',
         'afind/application.py',
         'afind/entry_point.py',
     ]

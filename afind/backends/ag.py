@@ -2,10 +2,12 @@ from __future__ import unicode_literals, print_function
 import re
 import sys
 from collections import OrderedDict
-from afind.adapters._base import AdapterBase, ParseResult
+from afind.backends._base import ParserBase, ParseResult 
+from afind.utils.term_colors import TermColors
+from afind.utils.result_formatters import FormatterBase
 
 
-class AdapterAg(AdapterBase):
+class AgParser(ParserBase):
     cmd_usage = 'ag --help'
 
     # params specefic for ag utility
@@ -18,8 +20,8 @@ class AdapterAg(AdapterBase):
     # 175;10 8,23 8:       line_data - with several matches in one line
     MATCH_STR_RE = re.compile(r'^(\d+)(?:;(\d+[ ]\d+(?:,\d+[ ]\d+)*))?:(.*)$')
 
-    def get_results(self, adapter_params, afind_params):
-        self.run_params = ['ag', '--ackmate'] + adapter_params
+    def get_results(self, parser_params, afind_params):
+        self.run_params = ['ag', '--ackmate'] + parser_params
         self.actions_pre(afind_params)
         self.cmd_search = self._join_args(self.run_params)
 
@@ -81,4 +83,45 @@ class AdapterAg(AdapterBase):
         patterns = r"'^((?!" + patterns + r").)*$'"
         return patterns
 
-Adapter = AdapterAg
+BackendParser = AgParser
+
+
+class AgDefaultColors(object):
+    RESET    = TermColors.RESET
+    FILENAME = TermColors.make_flags(TermColors.green,  bold=True)
+    LINENUM  = TermColors.make_flags(TermColors.yellow, bold=True)
+    MATCH    = TermColors.make_flags(TermColors.black,  bg=TermColors.yellow)
+
+
+class AgFormatter(FormatterBase):
+    DefaultColors = AgDefaultColors
+
+    def __iter__(self):
+        c = self._colors
+
+        for res in self._results_stream:
+            if res.is_file_finished:
+                sys.stdout.write(b'\n')
+
+            elif res.is_title:
+                sys.stdout.write(c.FILENAME + res.filename.encode('utf-8') + c.RESET + b'\n')
+
+            elif res.is_group_delimiter:
+                sys.stdout.write(b'--\n')
+
+            elif res.line_text is not None:
+                suffix = b':' if res.line_cols else b'-'
+                sys.stdout.write(c.LINENUM + res.line_num.encode('utf-8') + suffix + c.RESET)
+
+                line_text = res.line_text.encode('utf-8')
+                cursor = 0
+                for start, length in res.line_cols:
+                    end = start + length
+                    sys.stdout.write(line_text[cursor:start])
+                    sys.stdout.write(c.MATCH + line_text[start:end] + c.RESET)
+                    cursor = end
+                sys.stdout.write(line_text[cursor:] + b'\n')
+
+            yield res
+
+BackendFormatter = AgFormatter
